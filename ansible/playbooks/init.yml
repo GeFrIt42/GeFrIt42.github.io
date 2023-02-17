@@ -1,0 +1,54 @@
+---
+- hosts: all
+  become: true
+  tasks:
+  - name: apt update
+    ansible.builtin.apt:
+      update_cache: true
+      cache_valid_time: 3600
+  - name: apt upgrade
+    ansible.builtin.apt:
+      upgrade: no
+      autoclean: true
+      autoremove: true
+  - name: Install a list of packages
+    ansible.builtin.apt:
+      pkg:
+        - xauth
+        - x11-apps
+        - net-tools
+        - git
+        - git-lfs
+        - neovim
+        - tmux
+        - tree
+        - zsh
+        - fish
+        - ruby-full
+        - build-essential
+        - zlib1g-dev
+  - name: Disable root login
+    ansible.builtin.user:
+      name: root
+      password_lock: true
+  - name: sshd config
+    ansible.builtin.lineinfile:
+      path: "/etc/ssh/sshd_config.d/99-user.conf"
+      line: "{{ item }}"
+      state: present
+      create: true
+    loop:
+      - 'X11UseLocalhost no'
+      - 'X11Forwarding yes'
+      - 'AllowAgentForwarding yes'
+      - 'PermitRootLogin no'
+      - 'PasswordAuthentication no'
+    notify: restart ssh
+
+  handlers:
+    - name: restart ssh
+      ansible.builtin.service:
+        name: ssh
+        daemon_reload: true
+        state: restarted
+

@@ -18,7 +18,6 @@ Vagrant.configure("2") do |config|
   # boxes will only be checked for updates when the user runs
   # `vagrant box outdated`. This is not recommended.
   config.vm.box_check_update = true
-
   # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine. In the example below,
   # accessing "localhost:8080" will access port 80 on the guest machine.
@@ -43,23 +42,10 @@ Vagrant.configure("2") do |config|
   # the path on the guest to mount the folder. And the optional third
   # argument is a set of non-required options.
   config.vm.synced_folder ".", "/home/vagrant/repo/", type: "nfs", nfs_version: 4
-  config.vm.synced_folder "~/.ssh", "/home/vagrant/.ssh/", type: "nfs", nfs_version: 4
-  config.vm.synced_folder "~/.config/git", "/home/vagrant/.config/git/", type: "nfs", nfs_version: 4
-
-  # Provider-specific configuration so you can fine-tune various
-  # backing providers for Vagrant. These expose provider-specific options.
-  # Example for VirtualBox:
-  #
-  # config.vm.provider "virtualbox" do |vb|
-  #   # Display the VirtualBox GUI when booting the machine
-  #   vb.gui = true
-  #
-  #   # Customize the amount of memory on the VM:
-  #   vb.memory = "1024"
-  # end
-  #
-  # View the documentation for the provider you are using for more
-  # information on available options.
+  if ENV['VAGRANT_DOT_CONFIG_DIR'] then
+     config.vm.synced_folder ENV['VAGRANT_DOT_CONFIG_DIR'] + "/git", "/home/vagrant/.config/git", type: "nfs", nfs_version: 4
+     config.vm.synced_folder ENV['VAGRANT_DOT_CONFIG_DIR'] + "/nvim", "/home/vagrant/.config/nvim", type: "nfs", nfs_version: 4 
+  end
 
   config.vm.provider :libvirt do |libvirt|
     libvirt.cpus = 6
@@ -72,14 +58,24 @@ Vagrant.configure("2") do |config|
   # Enable provisioning with a shell script. Additional provisioners such as
   # Ansible, Chef, Docker, Puppet and Salt are also available. Please see the
   # documentation for more information about their specific syntax and use.
+  config.vm.provision "ansible" do |ansible|
+    ansible.playbook = "ansible/playbooks/init.yml"
+    ansible.verbose = "vvv"
+  end
+
+  # ToDo: migrate to ansible
   config.vm.provision "shell", inline: <<-SHELL
+    chown vagrant:vagrant /home/vagrant/.config
+    export DEBIAN_FRONTEND=noninteractive
     apt-get install wget gpg
     wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
     install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
     sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
     rm -f packages.microsoft.gpg
-    apt-get install -y neovim git git-lfs xeyes code
-    apt-get install -y ruby-full build-essential zlib1g-dev
+    apt install apt-transport-https
+    apt-get update
+    apt-get install -y code
+    gem install jekyll bundler
   SHELL
- 
+
 end
